@@ -2,11 +2,18 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/AppController.php';
+namespace App\Controller;
 
 
 final class DefaultController extends AppController
 {
+    public function show(int $id): void
+    {
+        $this->render('project', [
+            'pageTitle' => 'Moja aplikacja',
+        ]);
+    }
+
     public function index(): void
     {
         $this->render('home', [
