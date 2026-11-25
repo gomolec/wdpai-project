@@ -13,6 +13,7 @@ declare(strict_types=1);
             <a href="/">Lista zakupów</a>
             <a href="/projects">Promocje</a>
             <a href="/projects">Zapisane</a>
+            <a href="/login">Logowanie</a>
         </nav>
 
         <p class="site-footer__copy">&copy; <?= date('Y') ?> Pan Masełko</p>

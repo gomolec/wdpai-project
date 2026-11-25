@@ -1,0 +1,178 @@
+/* Login / Authentication Page */
+.auth-page {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--topbar-height) - 8rem);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 26rem;
+    padding: var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.auth-card__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
+}
+
+.auth-card__mascot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 68px;
+    height: 68px;
+    padding: var(--space-2);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-container);
+}
+
+.auth-card__mascot img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.auth-card__title {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--font-extrabold);
+    line-height: var(--leading-lg);
+    letter-spacing: var(--tracking-brand);
+    color: var(--color-on-background);
+}
+
+.auth-card__subtitle {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-weight: var(--font-regular);
+    line-height: var(--leading-sm);
+    color: var(--color-on-surface);
+}
+
+/* Reusable Login Form Component */
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.auth-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-md);
+    background: var(--color-error-container);
+    color: var(--color-error);
+    font-size: var(--text-xs);
+    font-weight: var(--font-bold);
+    line-height: var(--leading-xs);
+}
+
+.auth-alert--success {
+    border-color: var(--color-success);
+    background: var(--color-success-container);
+    color: var(--color-success);
+}
+
+.auth-alert__icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.auth-field__hint {
+    margin: 0;
+    font-size: var(--text-xs);
+    font-weight: var(--font-regular);
+    line-height: var(--leading-xs);
+    color: var(--color-on-surface);
+}
+
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+}
+
+.auth-field__label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    line-height: var(--leading-sm);
+    color: var(--color-on-background);
+}
+
+.auth-field__input {
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-on-background);
+    font-size: var(--text-sm);
+    font-weight: var(--font-regular);
+    line-height: normal;
+}
+
+.auth-field__input--error {
+    border-color: var(--color-error);
+}
+
+.auth-field__error {
+    margin: 0;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    line-height: var(--leading-xs);
+    color: var(--color-error);
+}
+
+.auth-form__submit {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-secondary);
+    color: var(--color-on-secondary);
+    font-size: var(--text-base);
+    font-weight: var(--font-bold);
+    line-height: var(--leading-base);
+}
+
+.auth-form__submit:hover {
+    background: var(--color-secondary-hover);
+}
+
+.auth-card__footer {
+    margin: 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
+    color: var(--color-on-surface);
+}
+
+@media (min-width: 60rem) {
+    .auth-page {
+        padding: var(--space-8) var(--space-8) var(--space-12);
+    }
+
+    .auth-card {
+        padding: var(--space-6);
+    }
+}
