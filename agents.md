@@ -16,27 +16,45 @@
 ## 2. Aktualna struktura repozytorium i wykryte uwagi techniczne
 
 ```text
-wdpai-app/
+.
 ├── docker/
-│   ├── db/Dockerfile           # postgres:16-alpine (skrypty initdb montowane z ./docker/db)
+│   ├── db/
+│   │   ├── Dockerfile              # postgres:16-alpine
+│   │   └── init/                   # numerowane skrypty SQL (001_..., 002_..., 003_...)
 │   ├── nginx/
-│   │   ├── Dockerfile          # nginx:stable-alpine
-│   │   └── nginx.conf          # root /app/public, front-controller -> /index.php?$query_string
-│   └── php/Dockerfile          # php:8.3-fpm-alpine (pdo_pgsql, pgsql, gd, zip, opcache, bcmath, composer)
-├── public/
-│   ├── index.php               # Front controller i definicja tras
-│   ├── css/style.css           # Zmienne CSS dla Light i Dark mode
-│   ├── js/theme.js             # Obsługa motywu (obecnie placeholder)
-│   └── views/                  # Szablony widoków (*.html.php)
+│   │   ├── Dockerfile              # nginx:stable-alpine
+│   │   └── nginx.conf              # root /app/public, front-controller -> /index.php?$query_string
+│   └── php/
+│       └── Dockerfile              # php:8.3-fpm-alpine (pdo_pgsql, pgsql, gd, zip, opcache, bcmath, composer)
+├── public/                         # JEDYNY publicznie dostępny katalog (document root Nginx)
+│   ├── index.php                   # Front controller i definicje wszystkich tras
+│   ├── assets/images/              # Statyczne grafiki (w tym maskotka Pana Masełka)
+│   ├── uploads/                    # Pliki wrzucane na serwer (w bazie tylko względny URL)
+│   ├── css/
+│   │   ├── style.css               # Globalne tokeny kolorów (Light/Dark) i style bazowe
+│   │   └── <widok>.css             # Style dedykowane dla konkretnych podstron (np. nav.css, login.css)
+│   ├── js/
+│   │   └── theme.js                # Obsługa Dark/Light mode + skrypty Fetch API (AJAX)
+│   └── views/
+│       ├── layout.html.php         # Wspólny szkielet HTML (head, anty-FOUC, theme-toggle, <?= $content ?>)
+│       ├── components/             # Powtarzalne fragmenty UI (np. nav.html.php, sidebar.html.php)
+│       └── <widok>.html.php        # Szablony poszczególnych podstron
 ├── src/
-│   ├── Routing.php             # Własny router regexowy (GET/POST, parametry {id})
-│   └── controllers/
-│       ├── AppController.php   # Bazowy kontroler z metodą render()
-│       ├── DefaultController.php
-│       └── ProjectController.php
-├── composer.json               # PSR-4: App\ -> src/, App\Controller\ -> src/controllers/
-├── docker-compose.yaml         # server (8080), php, db (5433), mailpit (8025), pgadmin (5050)
-└── .env                        # Sekrety i porty (ignorowane przez git)
+│   ├── Routing.php                 # Rejestracja i obsługa tras (regex)
+│   ├── Database.php                # Singleton połączenia PDO z PostgreSQL
+│   ├── controllers/
+│   │   ├── AppController.php       # Bazowy kontroler (isGet, isPost, render z layoutem)
+│   │   └── *Controller.php         # Kontrolery domenowe (App\Controller\*)
+│   ├── Repository/
+│   │   ├── Repository.php          # Bazowa klasa repozytorium z wstrzykiwanym ?PDO
+│   │   └── *Repository.php         # Zapytania SQL do PostgreSQL (App\Repository\*)
+│   ├── Model/                      # Encje / DTO (App\Model\*)
+│   └── Service/                    # Logika biznesowa (kategoryzacja, upload, mailer, i18n)
+├── tests/                          # Testy jednostkowe (PHPUnit)
+├── bin/                            # Skrypty CLI (np. CRON do alertów promocyjnych)
+├── composer.json                   # PSR-4: App\ -> src/, App\Controller\ -> src/controllers/
+├── docker-compose.yaml             # server (8080), php, db (5433), mailpit (8025), pgadmin (5050)
+└── .env                            # Sekrety i konfiguracja (ignorowane przez git)
 ```
 
 ### Znane błędy w starterze do naprawienia w pierwszej kolejności
@@ -93,7 +111,61 @@ wdpai-app/
 
 ---
 
-## 5. Architektura Backendu i Bazy Danych
+## 5. Architektura MVC, Routing i Renderowanie Podstron
+
+Przepływ żądania:
+
+```text
+przeglądarka -> Nginx -> public/index.php -> Routing -> Controller -> Repository/Service -> View (w layout.html.php) -> HTML/JSON
+```
+
+### Front Controller i Routing (`public/index.php`, `src/Routing.php`)
+
+- Wszystkie trasy rejestruj wyłącznie w `public/index.php`:
+  ```php
+  $routing->get('/lists', ListController::class, 'index');$routing->get('/lists/{id}', ListController::class, 'show');
+  $routing->get('/login', SecurityController::class, 'login');$routing->post('/login', SecurityController::class, 'login');
+  ```
+- Router dopasowuje parametry `{name}` jako cyfry (`(?P<name>\d+)`), konwertuje je na `int` i przekazuje do akcji kontrolera jako nazwane argumenty (`$controller->{$action}(...$parameters)`).
+- Query params obsługuj w warstwie wejścia (kontrolerze) z walidacją.
+- Dla nieznanych tras `public/index.php` ustawia `http_response_code(404)` i wywołuje `(new DefaultController())->notFound()`.
+- **Nie dodawaj logiki biznesowej do `Routing.php`.**
+
+### Kontrolery (`src/controllers/AppController.php`)
+
+- Kontrolery w `src/controllers/` używają namespace `App\Controller` i dziedziczą po `AppController`.
+- `AppController` udostępnia:
+  - `$this->isGet()` / `$this->isPost()` — rozróżnianie metod HTTP w jednej akcji (np. `SecurityController::login()`).
+  - `$this->render(string $template, array $variables = [])` — renderuje `public/views/<template>.html.php` do bufora (`ob_start()` / `ob_get_clean()`) jako `$content` i wstrzykuje go do `public/views/layout.html.php`.
+- Kontroler musi być cienki: walidacja wejścia, wywołanie serwisu/repozytorium, przekazanie danych do `render()` lub zwrot JSON dla Fetch API.
+
+### Osobne strony, Layout i Komponenty (`public/views/`)
+
+- **`layout.html.php`** zawiera cały szkielet HTML (`<!doctype html>`, `<head>`, globalny `/css/style.css`, synchroniczny skrypt anty-FOUC, przycisk `.theme-toggle`, `/js/theme.js` oraz `<?= $content ?>`).
+- **Dedykowane arkusze CSS per strona:** Widok może na górze pliku zadeklarować tablicę `$stylesheets`, którą `layout.html.php` automatycznie podepnie w `<head>`:
+  ```php
+  <?php
+  $stylesheets = ['/css/nav.css', '/css/lists.css'];$activeNavigation = 'lists';
+  ?>
+  <?php require __DIR__ . '/components/nav.html.php'; ?>
+  <main>...</main>
+  ```
+- **Komponenty:** Powtarzalne elementy (nawigacja, sidebar admina, karty promocji) wydzielaj do `public/views/components/*.html.php` i dołączaj przez `require __DIR__ . '/components/...'`.
+- **Escaping (XSS):** Każda wartość z bazy lub od użytkownika MUSI być escapowana:
+  ```php
+  <?= htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') ?>
+  ```
+
+---
+
+## 6. Baza danych (PostgreSQL) i Warstwa Repository
+
+- **`src/Database.php`:** Singleton połączenia `PDO` z PostgreSQL pobierający konfigurację z `getenv()` (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`), z opcjami `PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION`, `PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC`, `PDO::ATTR_EMULATE_PREPARES => false`.
+- **`src/Repository/Repository.php`:** Abstrakcyjna klasa bazowa w `App\Repository`, przyjmująca `?PDO $connection = null` w konstruktorze (pod testy jednostkowe) i domyślnie korzystająca z `Database::getInstance()->getConnection()`.
+- **Wymagania bazodanowe:**
+  - Znormalizowany schemat (tabele m.in. `users`, `roles`, `shopping_lists`, `list_members`, `categories`, `list_items`, `stores`, `promotions`, `saved_promotions`) + diagram **ERD w Mermaid** w `README.md`.
+  - **Widoki (`VIEW`)**, **funkcje i wyzwalacze (`FUNCTION` + `TRIGGER`)**, **transakcje (`BEGIN`/`COMMIT`/`ROLLBACK`)**, jawne **akcje na referencjach** (`ON DELETE CASCADE` / `ON DELETE SET NULL`).
+  - Numerowane skrypty w `docker/db/init/` oraz pełny eksport bazy do pliku `.sql`.
 
 ### Zalecana rozbudowa katalogu `src/` (MVC + Repository)
 
@@ -126,7 +198,7 @@ src/
 
 ---
 
-## 6. Bezpieczeństwo (Security Bingo)
+## 7. Bezpieczeństwo (Security Bingo)
 
 Każdy nowy kod musi przestrzegać poniższych zasad:
 
@@ -141,7 +213,7 @@ Każdy nowy kod musi przestrzegać poniższych zasad:
 
 ---
 
-## 7. Standardy kodu i Git workflow
+## 8. Standardy kodu i Git workflow
 
 - **PHP:** Zawsze `declare(strict_types=1);`, ścisłe typowanie parametrów i typów zwracanych, zgodność z PSR-4 i PSR-12, brak duplikacji kodu (DRY).
 - **Widoki:** Brak logiki biznesowej i zapytań SQL w plikach `public/views/*.html.php`.
@@ -152,7 +224,7 @@ Każdy nowy kod musi przestrzegać poniższych zasad:
 
 ---
 
-## 8. Komendy pomocnicze (Docker)
+## 9. Komendy pomocnicze (Docker)
 
 ```bash
 # Uruchomienie środowiska
